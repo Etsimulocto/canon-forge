@@ -867,14 +867,15 @@ function updateUsesUI() {
   const badge = document.getElementById('uses-badge');
   const barFill = document.getElementById('uses-bar-fill');
   const barCount = document.getElementById('uses-bar-count');
+  const barWrap = document.getElementById('uses-bar-wrap');
 
   if (isPaid) {
     badge.textContent = 'unlimited';
     badge.className = 'uses-badge good';
-    barFill.style.width = '100%';
-    barCount.textContent = 'unlimited';
+    barWrap.style.display = 'none';
     return;
   }
+  barWrap.style.display = 'block';
 
   const pct = Math.max(0, (usesRemaining / FREE_LIMIT) * 100);
   barFill.style.width = pct + '%';
