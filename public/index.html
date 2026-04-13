@@ -896,6 +896,7 @@ function updateUsesUI() {
 async function runForge() {
   const raw = document.getElementById('raw-input').value.trim();
   if (!raw) { showError('Paste a transcript first.'); return; }
+  if (!currentUser) { openAuth(); return; }
 
   // Check limit for anon users
   if (!currentUser) {
