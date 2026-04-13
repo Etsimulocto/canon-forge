@@ -631,6 +631,59 @@
     }
     .hero    { animation: fadeUp 0.5s ease both; }
     .forge-wrap { animation: fadeUp 0.5s 0.1s ease both; }
+  /* ── STORE PANEL ── */
+  #store-panel {
+    position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);
+    width:100%;max-width:680px;
+    background:var(--surface);border:1px solid var(--border);border-bottom:none;
+    border-radius:20px 20px 0 0;z-index:201;
+    transition:transform 0.35s cubic-bezier(0.32,0.72,0,1);
+    max-height:85dvh;overflow-y:auto;
+  }
+  #store-panel.open { transform:translateX(-50%) translateY(0); }
+  .store-handle {
+    width:36px;height:4px;background:var(--muted);border-radius:2px;
+    margin:14px auto 0;
+  }
+  .store-inner { padding:24px 28px 40px; }
+  .store-title {
+    font-family:var(--font-display);font-size:1.6rem;letter-spacing:0.1em;
+    color:var(--accent);margin-bottom:20px;
+  }
+  .store-plan-box {
+    background:var(--bg);border:1px solid var(--border);border-radius:10px;
+    padding:16px 18px;margin-bottom:20px;
+  }
+  .store-plan-label {
+    font-size:0.6rem;letter-spacing:0.16em;color:var(--subtext);margin-bottom:4px;
+  }
+  .store-plan-uses { font-size:1rem;color:var(--text); }
+  .store-divider { height:1px;background:var(--border);margin:20px 0; }
+  .store-product-name {
+    font-family:var(--font-serif);font-size:1.2rem;color:var(--text);margin-bottom:6px;
+  }
+  .store-product-desc { font-size:0.75rem;color:var(--subtext);line-height:1.6;margin-bottom:14px; }
+  .store-product-price {
+    font-family:var(--font-display);font-size:2rem;letter-spacing:0.08em;
+    color:var(--accent);margin-bottom:16px;
+  }
+  .store-upgrade-btn {
+    width:100%;padding:14px;background:var(--accent);border:none;border-radius:8px;
+    color:#0c0c0e;font-family:var(--font-display);font-size:1.1rem;
+    letter-spacing:0.1em;cursor:pointer;transition:opacity 0.2s;
+  }
+  .store-upgrade-btn:hover { opacity:0.88; }
+  .store-upgrade-btn.owned {
+    background:var(--muted);color:var(--subtext);cursor:default;
+  }
+  .store-upgrade-btn.owned:hover { opacity:1; }
+  .store-account { font-size:0.7rem;color:var(--subtext);margin-bottom:10px; }
+  .store-signout-btn {
+    background:none;border:1px solid var(--border);border-radius:7px;
+    padding:8px 16px;color:var(--subtext);font-family:var(--font-mono);
+    font-size:0.68rem;cursor:pointer;transition:all 0.2s;
+  }
+  .store-signout-btn:hover { border-color:var(--danger);color:var(--danger); }
   </style>
 </head>
 <body>
@@ -641,7 +694,7 @@
   <header>
     <div class="logo">CANON FORGE <span>/ memory extractor</span></div>
     <div class="header-right">
-      <div class="uses-badge good" id="uses-badge">5 uses free</div>
+      <div class="uses-badge good" id="uses-badge" onclick="openStore()" style="cursor:pointer">5 uses free</div>
       <button class="auth-btn-sm" id="auth-toggle-btn" onclick="openAuth()">sign in</button>
     </div>
   </header>
@@ -1099,6 +1152,44 @@ function setLoading(on) {
 function showError(msg) { document.getElementById('forge-error').textContent = msg; }
 function clearError()   { document.getElementById('forge-error').textContent = ''; }
 
+// ── STORE ────────────────────────────────────────────────────
+function openStore() {
+  updateStoreUI();
+  document.getElementById('store-overlay').classList.add('open');
+  document.getElementById('store-panel').classList.add('open');
+}
+function closeStore() {
+  document.getElementById('store-overlay').classList.remove('open');
+  document.getElementById('store-panel').classList.remove('open');
+}
+function updateStoreUI() {
+  const planLabel = document.getElementById('store-plan-label');
+  const planUses  = document.getElementById('store-plan-uses');
+  const upgradeBtn = document.getElementById('store-upgrade-btn');
+  const accountEl = document.getElementById('store-account-email');
+  if (isPaid) {
+    planLabel.textContent = 'LIFETIME ACCESS';
+    planUses.textContent  = 'Unlimited forges';
+    upgradeBtn.textContent = 'UNLOCKED';
+    upgradeBtn.className   = 'store-upgrade-btn owned';
+    upgradeBtn.onclick     = null;
+  } else {
+    planLabel.textContent = 'FREE PLAN';
+    planUses.textContent  = usesRemaining + ' of 5 daily forges remaining';
+    upgradeBtn.textContent = 'UNLOCK CANON FORGE';
+    upgradeBtn.className   = 'store-upgrade-btn';
+    upgradeBtn.onclick     = goToCheckout;
+  }
+  if (currentUser) {
+    accountEl.textContent = currentUser.email;
+    document.getElementById('store-signout-btn').style.display = 'block';
+  } else {
+    accountEl.textContent = 'Not signed in';
+    document.getElementById('store-signout-btn').style.display = 'none';
+  }
+}
+async function handleStoreSignout() { await sb.auth.signOut(); closeStore(); }
+
 // Close modals on overlay click
 document.getElementById('auth-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('auth-modal')) closeAuth();
@@ -1141,5 +1232,27 @@ updateUsesUI();
   }
 })();
 </script>
+<!-- STORE OVERLAY -->
+<div class="modal-overlay" id="store-overlay" onclick="closeStore()"></div>
+<div id="store-panel">
+  <div class="store-handle"></div>
+  <div class="store-inner">
+    <div class="store-title">Canon Forge</div>
+    <div class="store-plan-box" id="store-plan-box">
+      <div class="store-plan-label" id="store-plan-label">FREE PLAN</div>
+      <div class="store-plan-uses" id="store-plan-uses">5 uses per day</div>
+    </div>
+    <div class="store-divider"></div>
+    <div class="store-product">
+      <div class="store-product-name">Lifetime Access</div>
+      <div class="store-product-desc">Unlimited memory forges. One-time payment. Forever.</div>
+      <div class="store-product-price">$4.99</div>
+      <button class="store-upgrade-btn" id="store-upgrade-btn" onclick="goToCheckout()">UNLOCK CANON FORGE</button>
+    </div>
+    <div class="store-divider"></div>
+    <div class="store-account" id="store-account-email"></div>
+    <button class="store-signout-btn" id="store-signout-btn" onclick="handleStoreSignout()">sign out</button>
+  </div>
+</div>
 </body>
 </html>
