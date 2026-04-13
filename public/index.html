@@ -2,23 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Spiralside</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Canon Forge — Structured Memory from Raw Conversation</title>
+  <meta name="description" content="Paste messy text. Get clean structured memory blocks. Built for writers, worldbuilders, and AI power users." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400&family=Bebas+Neue&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
+    /* ── TOKENS ── */
     :root {
-      --bg:       #0a0a0f;
-      --surface:  #111118;
-      --border:   #1e1e2e;
-      --muted:    #2a2a3e;
-      --text:     #e8e8f0;
-      --subtext:  #7070a0;
-      --accent:   #7c6af7;
-      --accent2:  #f76a8a;
-      --accent3:  #6af7c8;
-      --nav-h:    64px;
-      --safe-bot: env(safe-area-inset-bottom, 0px);
+      --bg:       #0c0c0e;
+      --surface:  #131316;
+      --border:   #222228;
+      --muted:    #2a2a32;
+      --text:     #e8e8ec;
+      --subtext:  #666680;
+      --accent:   #e8d5a3;   /* warm gold — editorial, not tech */
+      --accent2:  #c4a882;
+      --danger:   #e07070;
+      --success:  #70c4a0;
+      --font-serif:  'Instrument Serif', Georgia, serif;
+      --font-mono:   'DM Mono', monospace;
+      --font-display:'Bebas Neue', sans-serif;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -27,19 +32,32 @@
       height: 100%;
       background: var(--bg);
       color: var(--text);
-      font-family: 'DM Mono', monospace;
-      overflow: hidden;
+      font-family: var(--font-mono);
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
 
-    /* ── APP SHELL ── */
+    /* ── NOISE TEXTURE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.5;
+    }
+
+    /* ── LAYOUT ── */
     #app {
+      position: relative;
+      z-index: 1;
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
-      height: 100dvh;
-      max-width: 480px;
+      max-width: 680px;
       margin: 0 auto;
-      position: relative;
+      padding: 0 24px;
     }
 
     /* ── HEADER ── */
@@ -47,850 +65,1039 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 20px;
+      padding: 28px 0 24px;
       border-bottom: 1px solid var(--border);
-      background: var(--bg);
-      flex-shrink: 0;
-      z-index: 10;
     }
+
     .logo {
-      font-family: 'Syne', sans-serif;
-      font-weight: 800;
-      font-size: 1.2rem;
-      letter-spacing: -0.02em;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      letter-spacing: 0.08em;
+      color: var(--accent);
     }
+
+    .logo span {
+      color: var(--subtext);
+      font-size: 0.9rem;
+      letter-spacing: 0.02em;
+    }
+
     .header-right {
       display: flex;
       align-items: center;
-      gap: 10px;
-    }
-    .avatar {
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.7rem;
-      font-family: 'Syne', sans-serif;
-      font-weight: 700;
-      cursor: pointer;
-      border: 2px solid var(--border);
-    }
-    .credits-badge {
-      font-size: 0.65rem;
-      color: var(--accent3);
-      border: 1px solid var(--accent3);
-      border-radius: 20px;
-      padding: 3px 8px;
-      letter-spacing: 0.05em;
-    }
-
-    /* ── VIEWS ── */
-    .view {
-      display: none;
-      flex-direction: column;
-      flex: 1;
-      overflow: hidden;
-    }
-    .view.active { display: flex; }
-
-    /* ── CHAT VIEW ── */
-    #chat-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
       gap: 12px;
-      -webkit-overflow-scrolling: touch;
-      scroll-behavior: smooth;
-    }
-    #chat-messages::-webkit-scrollbar { width: 3px; }
-    #chat-messages::-webkit-scrollbar-track { background: transparent; }
-    #chat-messages::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 2px; }
-
-    .msg {
-      display: flex;
-      gap: 10px;
-      animation: msgIn 0.2s ease;
-    }
-    @keyframes msgIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .msg.user { flex-direction: row-reverse; }
-
-    .msg-avatar {
-      width: 28px; height: 28px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.6rem;
-      font-weight: 700;
-      font-family: 'Syne', sans-serif;
-      margin-top: 2px;
-    }
-    .msg.bot .msg-avatar  { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
-    .msg.user .msg-avatar { background: var(--muted); color: var(--subtext); }
-
-    .msg-bubble {
-      max-width: 75%;
-      padding: 10px 14px;
-      border-radius: 16px;
-      font-size: 0.82rem;
-      line-height: 1.55;
-      letter-spacing: 0.01em;
-    }
-    .msg.bot  .msg-bubble {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-bottom-left-radius: 4px;
-      color: var(--text);
-    }
-    .msg.user .msg-bubble {
-      background: var(--accent);
-      border-bottom-right-radius: 4px;
-      color: #fff;
     }
 
-    .typing-indicator {
-      display: flex; gap: 4px; align-items: center;
-      padding: 10px 14px;
-    }
-    .typing-indicator span {
-      width: 6px; height: 6px;
-      background: var(--subtext);
-      border-radius: 50%;
-      animation: bounce 1.2s infinite;
-    }
-    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes bounce {
-      0%, 60%, 100% { transform: translateY(0); }
-      30%            { transform: translateY(-5px); }
-    }
-
-    /* ── CHAT INPUT ── */
-    .chat-input-area {
-      padding: 12px 16px calc(12px + var(--safe-bot));
-      border-top: 1px solid var(--border);
-      background: var(--bg);
-      flex-shrink: 0;
-    }
-    .input-row {
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-      background: var(--surface);
+    .uses-badge {
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      color: var(--subtext);
       border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 8px 8px 8px 14px;
-      transition: border-color 0.2s;
-    }
-    .input-row:focus-within { border-color: var(--accent); }
-
-    #msg-input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      outline: none;
-      color: var(--text);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.82rem;
-      resize: none;
-      max-height: 100px;
-      line-height: 1.5;
-    }
-    #msg-input::placeholder { color: var(--subtext); }
-
-    .input-actions {
-      display: flex; gap: 6px; align-items: center;
-    }
-    .icon-btn {
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      border: none;
-      background: transparent;
-      color: var(--subtext);
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: color 0.2s, background 0.2s;
-      flex-shrink: 0;
-    }
-    .icon-btn:hover { color: var(--text); background: var(--muted); }
-    .icon-btn.send {
-      background: var(--accent);
-      color: #fff;
-    }
-    .icon-btn.send:hover { background: #6a5ae0; }
-    .icon-btn svg { width: 16px; height: 16px; }
-
-    /* ── SHEET VIEW ── */
-    #sheet-view {
-      overflow-y: auto;
-      padding: 20px 16px calc(20px + var(--safe-bot));
-      -webkit-overflow-scrolling: touch;
-    }
-    .sheet-header {
-      text-align: center;
-      padding: 20px 0 24px;
-    }
-    .sheet-avatar-lg {
-      width: 72px; height: 72px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      margin: 0 auto 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.5rem;
-      font-family: 'Syne', sans-serif;
-      font-weight: 800;
-      border: 3px solid var(--border);
-    }
-    .sheet-name {
-      font-family: 'Syne', sans-serif;
-      font-weight: 700;
-      font-size: 1.3rem;
-    }
-    .sheet-sub {
-      font-size: 0.72rem;
-      color: var(--subtext);
-      margin-top: 4px;
-      letter-spacing: 0.08em;
+      padding: 4px 10px;
     }
 
-    .sheet-section {
-      margin-bottom: 20px;
-    }
-    .sheet-section-title {
+    .uses-badge.low { color: var(--danger); border-color: var(--danger); }
+    .uses-badge.good { color: var(--success); border-color: var(--success); }
+
+    .auth-btn-sm {
+      font-family: var(--font-mono);
       font-size: 0.65rem;
-      letter-spacing: 0.12em;
-      color: var(--subtext);
-      text-transform: uppercase;
-      margin-bottom: 10px;
-      padding-bottom: 6px;
+      letter-spacing: 0.1em;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .auth-btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 56px 0 40px;
       border-bottom: 1px solid var(--border);
     }
-    .trait-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+
+    .hero-eyebrow {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
     }
-    .trait-card {
+
+    .hero-title {
+      font-family: var(--font-serif);
+      font-size: clamp(2.2rem, 6vw, 3.4rem);
+      line-height: 1.15;
+      color: var(--text);
+      margin-bottom: 20px;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .hero-sub {
+      font-size: 0.82rem;
+      line-height: 1.7;
+      color: var(--subtext);
+      max-width: 480px;
+    }
+
+    /* ── MAIN FORGE UI ── */
+    .forge-wrap {
+      padding: 40px 0;
+      flex: 1;
+    }
+
+    .forge-label {
+      font-size: 0.58rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--subtext);
+      margin-bottom: 8px;
+    }
+
+    /* INPUT SECTION */
+    .forge-input-section {
+      margin-bottom: 24px;
+    }
+
+    .forge-meta {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .meta-field {
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .meta-field label {
+      display: block;
+      font-size: 0.55rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--subtext);
+      margin-bottom: 5px;
+    }
+
+    .meta-field input,
+    .meta-field select {
+      width: 100%;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 12px;
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      outline: none;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
     }
-    .trait-label {
-      font-size: 0.62rem;
+
+    .meta-field input:focus,
+    .meta-field select:focus { border-color: var(--accent); }
+
+    .meta-field select option { background: var(--surface); }
+
+    #raw-input {
+      width: 100%;
+      min-height: 220px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.65;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #raw-input:focus { border-color: var(--accent); }
+    #raw-input::placeholder { color: var(--subtext); }
+
+    /* FORGE BUTTON */
+    .forge-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      color: #0c0c0e;
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      margin-top: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .forge-btn:hover { opacity: 0.9; }
+    .forge-btn:active { transform: scale(0.99); }
+    .forge-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .forge-btn .btn-inner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .forge-btn .btn-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: #0c0c0e;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    .forge-btn.loading .btn-spinner { display: block; }
+    .forge-btn.loading .btn-label { opacity: 0.6; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* OUTPUT SECTION */
+    #output-section {
+      display: none;
+      margin-top: 32px;
+      border-top: 1px solid var(--border);
+      padding-top: 28px;
+    }
+
+    #output-section.visible { display: block; }
+
+    .output-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .output-title {
+      font-family: var(--font-serif);
+      font-size: 1.1rem;
+      color: var(--accent);
+    }
+
+    .output-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .dl-btn {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
       color: var(--subtext);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      margin-bottom: 3px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 5px 10px;
+      cursor: pointer;
+      transition: all 0.2s;
     }
-    .trait-value {
+    .dl-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    .output-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .output-field {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .output-field:last-child { border-bottom: none; }
+
+    .output-field-label {
+      font-size: 0.55rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--subtext);
+      margin-bottom: 6px;
+    }
+
+    .output-field-value {
       font-size: 0.8rem;
+      line-height: 1.65;
       color: var(--text);
     }
-    .trait-bar-wrap {
+
+    .output-field-value.accent { color: var(--accent); font-style: italic; }
+
+    .output-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .tag {
+      font-size: 0.6rem;
+      letter-spacing: 0.08em;
+      color: var(--accent2);
+      border: 1px solid rgba(196,168,130,0.3);
+      border-radius: 20px;
+      padding: 3px 9px;
+    }
+
+    /* ── USE COUNTER BAR ── */
+    .uses-bar-wrap {
+      margin: 32px 0 0;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .uses-bar-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .uses-bar-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--subtext);
+    }
+
+    .uses-bar-count {
+      font-size: 0.6rem;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+    }
+
+    .uses-bar-track {
       height: 3px;
       background: var(--muted);
       border-radius: 2px;
-      margin-top: 6px;
       overflow: hidden;
     }
-    .trait-bar {
+
+    .uses-bar-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      background: var(--accent);
       border-radius: 2px;
-      transition: width 0.8s ease;
+      transition: width 0.5s ease;
     }
-    .empty-state {
+
+    /* ── ERROR MSG ── */
+    .forge-error {
+      font-size: 0.7rem;
+      color: var(--danger);
+      margin-top: 10px;
+      min-height: 18px;
       text-align: center;
-      padding: 40px 20px;
-      color: var(--subtext);
-      font-size: 0.78rem;
-      line-height: 1.7;
     }
-    .empty-state .icon { font-size: 2rem; margin-bottom: 12px; }
 
-    /* ── VAULT VIEW ── */
-    #vault-view {
-      overflow-y: auto;
-      padding: 16px 16px calc(16px + var(--safe-bot));
-      -webkit-overflow-scrolling: touch;
-    }
-    .vault-toolbar {
+    /* ── AUTH MODAL ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(12,12,14,0.88);
+      z-index: 100;
       display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-    .vault-btn {
-      flex: 1;
-      padding: 10px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.72rem;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      gap: 6px;
-      transition: border-color 0.2s, background 0.2s;
-      letter-spacing: 0.04em;
-    }
-    .vault-btn:hover { border-color: var(--accent); background: var(--muted); }
-    .vault-btn svg { width: 14px; height: 14px; }
-
-    .vault-list { display: flex; flex-direction: column; gap: 8px; }
-    .vault-item {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      cursor: pointer;
-      transition: border-color 0.2s;
-    }
-    .vault-item:hover { border-color: var(--accent); }
-    .vault-icon {
-      width: 36px; height: 36px;
-      border-radius: 8px;
-      background: var(--muted);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1rem;
-      flex-shrink: 0;
-    }
-    .vault-info { flex: 1; min-width: 0; }
-    .vault-filename {
-      font-size: 0.78rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .vault-meta {
-      font-size: 0.62rem;
-      color: var(--subtext);
-      margin-top: 2px;
-    }
-    .vault-del {
-      color: var(--subtext);
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 4px;
-      display: flex;
-      transition: color 0.2s;
-    }
-    .vault-del:hover { color: var(--accent2); }
-    .vault-del svg { width: 14px; height: 14px; }
-
-    /* ── BOT BUILDER VIEW ── */
-    #builder-view {
-      overflow-y: auto;
-      padding: 16px 16px calc(16px + var(--safe-bot));
-      -webkit-overflow-scrolling: touch;
-    }
-    .builder-section { margin-bottom: 24px; }
-    .builder-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      color: var(--subtext);
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-    .builder-input {
-      width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
-      color: var(--text);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.8rem;
-      outline: none;
-      transition: border-color 0.2s;
-      resize: none;
-    }
-    .builder-input:focus { border-color: var(--accent); }
-    .builder-input::placeholder { color: var(--subtext); }
-
-    .tone-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
-    .tone-chip {
-      padding: 8px 4px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--subtext);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.68rem;
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.15s;
-      letter-spacing: 0.04em;
-    }
-    .tone-chip.selected {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: rgba(124,106,247,0.1);
-    }
-
-    .save-btn {
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border: none;
-      border-radius: 12px;
-      color: #fff;
-      font-family: 'Syne', sans-serif;
-      font-weight: 700;
-      font-size: 0.9rem;
-      cursor: pointer;
-      letter-spacing: 0.04em;
-      transition: opacity 0.2s;
-    }
-    .save-btn:hover { opacity: 0.88; }
-
-    /* ── BOTTOM NAV ── */
-    nav {
-      display: flex;
-      border-top: 1px solid var(--border);
-      background: var(--bg);
-      padding-bottom: var(--safe-bot);
-      flex-shrink: 0;
-    }
-    .nav-item {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      padding: 10px 4px;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      width: 100%;
+      max-width: 400px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px 28px;
+      transform: translateY(16px);
+      transition: transform 0.25s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+
+    .modal-title {
+      font-family: var(--font-serif);
+      font-size: 1.4rem;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .modal-sub {
+      font-size: 0.72rem;
+      color: var(--subtext);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .modal-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-tab {
+      flex: 1;
+      padding: 8px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--subtext);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
       cursor: pointer;
+      margin-bottom: -1px;
+      transition: all 0.2s;
+    }
+    .modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label {
+      display: block;
+      font-size: 0.58rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--subtext);
+      margin-bottom: 6px;
+    }
+    .modal-field input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 10px 13px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .modal-field input:focus { border-color: var(--accent); }
+
+    .modal-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent);
+      border: none;
+      border-radius: 7px;
+      color: #0c0c0e;
+      font-family: var(--font-display);
+      font-size: 1rem;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      margin-top: 4px;
+    }
+    .modal-btn:hover { opacity: 0.88; }
+    .modal-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .modal-error {
+      font-size: 0.68rem;
+      color: var(--danger);
+      text-align: center;
+      margin-top: 10px;
+      min-height: 16px;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
       background: none;
       border: none;
       color: var(--subtext);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.58rem;
-      letter-spacing: 0.06em;
-      transition: color 0.2s;
-      position: relative;
-    }
-    .nav-item svg { width: 20px; height: 20px; }
-    .nav-item.active { color: var(--accent); }
-    .nav-item.active::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 20%; right: 20%;
-      height: 2px;
-      background: var(--accent);
-      border-radius: 0 0 3px 3px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 4px 8px;
     }
 
-    /* ── SCROLLBAR GLOBAL ── */
-    * { scrollbar-width: thin; scrollbar-color: var(--muted) transparent; }
+    /* ── PAYWALL MODAL ── */
+    .paywall-body {
+      text-align: center;
+      padding: 8px 0;
+    }
+
+    .paywall-icon {
+      font-size: 2.4rem;
+      margin-bottom: 16px;
+    }
+
+    .paywall-title {
+      font-family: var(--font-serif);
+      font-size: 1.5rem;
+      margin-bottom: 10px;
+    }
+
+    .paywall-sub {
+      font-size: 0.76rem;
+      color: var(--subtext);
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+
+    .paywall-price {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .paywall-price-sub {
+      font-size: 0.65rem;
+      color: var(--subtext);
+      margin-bottom: 24px;
+      letter-spacing: 0.08em;
+    }
+
+    .paywall-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      color: #0c0c0e;
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      margin-bottom: 10px;
+    }
+    .paywall-btn:hover { opacity: 0.88; }
+
+    .paywall-alt {
+      font-size: 0.62rem;
+      color: var(--subtext);
+      letter-spacing: 0.06em;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 24px 0 32px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .footer-left {
+      font-size: 0.6rem;
+      color: var(--subtext);
+      letter-spacing: 0.08em;
+    }
+
+    .footer-right {
+      display: flex;
+      gap: 16px;
+    }
+
+    .footer-link {
+      font-size: 0.6rem;
+      color: var(--subtext);
+      text-decoration: none;
+      letter-spacing: 0.06em;
+      transition: color 0.2s;
+    }
+    .footer-link:hover { color: var(--accent); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .hero    { animation: fadeUp 0.5s ease both; }
+    .forge-wrap { animation: fadeUp 0.5s 0.1s ease both; }
   </style>
 </head>
 <body>
+
 <div id="app">
 
   <!-- HEADER -->
   <header>
-    <div class="logo">spiralside</div>
+    <div class="logo">CANON FORGE <span>/ memory extractor</span></div>
     <div class="header-right">
-      <div class="credits-badge" id="credits-display">∞ credits</div>
-      <div class="avatar" id="user-avatar">?</div>
+      <div class="uses-badge good" id="uses-badge">5 uses free</div>
+      <button class="auth-btn-sm" id="auth-toggle-btn" onclick="openAuth()">sign in</button>
     </div>
   </header>
 
-  <!-- CHAT VIEW -->
-  <div class="view active" id="chat-view">
-    <div id="chat-messages">
-      <div class="msg bot">
-        <div class="msg-avatar">S</div>
-        <div class="msg-bubble">Hey. I'm here. What's on your mind?</div>
-      </div>
-    </div>
-    <div class="chat-input-area">
-      <div class="input-row">
-        <textarea id="msg-input" rows="1" placeholder="say something..."></textarea>
-        <div class="input-actions">
-          <button class="icon-btn" id="attach-btn" title="Attach file">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-            </svg>
-          </button>
-          <button class="icon-btn send" id="send-btn" title="Send">
-            <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-              <line x1="22" y1="2" x2="11" y2="13"/>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-            </svg>
-          </button>
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-eyebrow">∴ structured memory from raw conversation</div>
+    <h1 class="hero-title">
+      Paste messy text.<br/>
+      Get <em>clean memory blocks.</em>
+    </h1>
+    <p class="hero-sub">
+      For writers, worldbuilders, and AI power users. Feed Canon Forge your raw conversations and it extracts what actually mattered — binding moments, exact language, established laws. Structured. Portable. Yours.
+    </p>
+  </div>
+
+  <!-- FORGE UI -->
+  <div class="forge-wrap">
+
+    <!-- META FIELDS -->
+    <div class="forge-input-section">
+      <div class="forge-label">session details</div>
+      <div class="forge-meta">
+        <div class="meta-field">
+          <label>Session Date</label>
+          <input type="date" id="session-date" />
+        </div>
+        <div class="meta-field">
+          <label>Canon Weight</label>
+          <select id="canon-weight">
+            <option value="low">Low — background texture</option>
+            <option value="medium" selected>Medium — notable moment</option>
+            <option value="high">High — binding event</option>
+            <option value="foundational">Foundational — origin layer</option>
+          </select>
+        </div>
+        <div class="meta-field">
+          <label>Characters Present</label>
+          <input type="text" id="characters" placeholder="Sky, Architect..." />
+        </div>
+        <div class="meta-field">
+          <label>Platform</label>
+          <select id="platform">
+            <option value="ChatGPT">ChatGPT</option>
+            <option value="Claude" selected>Claude</option>
+            <option value="Spiralside">Spiralside</option>
+            <option value="Discord">Discord</option>
+            <option value="Other">Other</option>
+          </select>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- CHARACTER SHEET VIEW -->
-  <div class="view" id="sheet-view">
-    <div class="sheet-header">
-      <div class="sheet-avatar-lg" id="sheet-avatar">?</div>
-      <div class="sheet-name" id="sheet-username">Your Name</div>
-      <div class="sheet-sub">CHARACTER SHEET · DRAFT</div>
-    </div>
+      <div class="forge-label" style="margin-top:16px">raw transcript</div>
+      <textarea id="raw-input" placeholder="Paste your conversation here. Messy is fine — that's the point."></textarea>
 
-    <div id="sheet-content">
-      <div class="empty-state">
-        <div class="icon">✦</div>
-        <div>Start chatting and your character sheet will build itself over time.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- VAULT VIEW -->
-  <div class="view" id="vault-view">
-    <div class="vault-toolbar">
-      <button class="vault-btn" id="add-file-btn">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="12" y1="18" x2="12" y2="12"/>
-          <line x1="9" y1="15" x2="15" y2="15"/>
-        </svg>
-        add file
+      <button class="forge-btn" id="forge-btn" onclick="runForge()">
+        <div class="btn-inner">
+          <div class="btn-spinner"></div>
+          <span class="btn-label">∴ CANNONIZE THIS THREAD</span>
+        </div>
       </button>
-      <button class="vault-btn" id="open-folder-btn">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
-        </svg>
-        open folder
-      </button>
+      <div class="forge-error" id="forge-error"></div>
     </div>
-    <div class="vault-list" id="vault-list">
-      <div class="empty-state">
-        <div class="icon">🗂</div>
-        <div>No files yet. Add docs or images and your companion will remember them.</div>
+
+    <!-- OUTPUT -->
+    <div id="output-section">
+      <div class="output-header">
+        <div class="output-title">Memory Block</div>
+        <div class="output-actions">
+          <button class="dl-btn" onclick="downloadJSON()">↓ JSON</button>
+          <button class="dl-btn" onclick="downloadTXT()">↓ TXT</button>
+        </div>
+      </div>
+      <div class="output-block" id="output-block">
+        <!-- populated by JS -->
       </div>
     </div>
-    <input type="file" id="file-input" style="display:none" accept=".txt,.md,.pdf,.png,.jpg,.jpeg,.webp" multiple />
-  </div>
 
-  <!-- BOT BUILDER VIEW -->
-  <div class="view" id="builder-view">
-    <div class="builder-section">
-      <div class="builder-label">companion name</div>
-      <input class="builder-input" type="text" id="bot-name" placeholder="give them a name..." />
-    </div>
-    <div class="builder-section">
-      <div class="builder-label">personality</div>
-      <textarea class="builder-input" id="bot-personality" rows="4" placeholder="describe how they think, speak, feel..."></textarea>
-    </div>
-    <div class="builder-section">
-      <div class="builder-label">tone</div>
-      <div class="tone-grid" id="tone-grid">
-        <button class="tone-chip" data-tone="warm">warm</button>
-        <button class="tone-chip" data-tone="direct">direct</button>
-        <button class="tone-chip" data-tone="curious">curious</button>
-        <button class="tone-chip" data-tone="playful">playful</button>
-        <button class="tone-chip" data-tone="stoic">stoic</button>
-        <button class="tone-chip" data-tone="poetic">poetic</button>
+    <!-- USE COUNTER -->
+    <div class="uses-bar-wrap" id="uses-bar-wrap">
+      <div class="uses-bar-header">
+        <span class="uses-bar-label">free uses</span>
+        <span class="uses-bar-count" id="uses-bar-count">5 remaining</span>
+      </div>
+      <div class="uses-bar-track">
+        <div class="uses-bar-fill" id="uses-bar-fill" style="width:100%"></div>
       </div>
     </div>
-    <div class="builder-section">
-      <div class="builder-label">first words</div>
-      <input class="builder-input" type="text" id="bot-greeting" placeholder="what do they say first?" />
+
+  </div><!-- /forge-wrap -->
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-left">© 2026 QuarterBit Games</div>
+    <div class="footer-right">
+      <a href="https://spiralside.com/privacy" class="footer-link">privacy</a>
+      <a href="https://spiralside.com/terms" class="footer-link">terms</a>
+      <a href="https://spiralside.com" class="footer-link">spiralside</a>
     </div>
-    <button class="save-btn" id="save-bot-btn">save companion</button>
+  </footer>
+
+</div><!-- /app -->
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="auth-modal">
+  <div class="modal" style="position:relative">
+    <button class="modal-close" onclick="closeAuth()">✕</button>
+    <div class="modal-title">Welcome back.</div>
+    <div class="modal-sub">Sign in to save your memory blocks and unlock unlimited forges.</div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="tab-signin" onclick="switchAuthTab('signin')">sign in</button>
+      <button class="modal-tab" id="tab-signup" onclick="switchAuthTab('signup')">create account</button>
+    </div>
+
+    <!-- SIGN IN -->
+    <div id="form-signin">
+      <div class="modal-field"><label>Email</label><input type="email" id="signin-email" placeholder="you@example.com" /></div>
+      <div class="modal-field"><label>Password</label><input type="password" id="signin-password" placeholder="••••••••" /></div>
+      <button class="modal-btn" id="signin-btn" onclick="handleSignin()">SIGN IN</button>
+    </div>
+
+    <!-- SIGN UP -->
+    <div id="form-signup" style="display:none">
+      <div class="modal-field"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com" /></div>
+      <div class="modal-field"><label>Password</label><input type="password" id="signup-password" placeholder="min 6 characters" /></div>
+      <button class="modal-btn" id="signup-btn" onclick="handleSignup()">CREATE ACCOUNT</button>
+    </div>
+
+    <div class="modal-error" id="auth-error"></div>
   </div>
+</div>
 
-  <!-- BOTTOM NAV -->
-  <nav>
-    <button class="nav-item active" data-view="chat-view">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-      </svg>
-      chat
-    </button>
-    <button class="nav-item" data-view="sheet-view">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-        <circle cx="12" cy="7" r="4"/>
-      </svg>
-      sheet
-    </button>
-    <button class="nav-item" data-view="vault-view">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-        <rect x="2" y="3" width="20" height="14" rx="2"/>
-        <path d="M8 21h8M12 17v4"/>
-      </svg>
-      vault
-    </button>
-    <button class="nav-item" data-view="builder-view">
-      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/>
-      </svg>
-      build
-    </button>
-  </nav>
-
+<!-- PAYWALL MODAL -->
+<div class="modal-overlay" id="paywall-modal">
+  <div class="modal">
+    <div class="paywall-body">
+      <div class="paywall-icon">∴</div>
+      <div class="paywall-title">Free uses exhausted.</div>
+      <div class="paywall-sub">You've used all 5 free memory forges.<br/>Unlock unlimited access to keep building your canon.</div>
+      <div class="paywall-price">$9.99</div>
+      <div class="paywall-price-sub">/ MONTH · CANCEL ANYTIME</div>
+      <button class="paywall-btn" onclick="goToCheckout()">UNLOCK CANON FORGE</button>
+      <div class="paywall-alt">or <a href="#" onclick="closePaywall()" style="color:var(--accent);text-decoration:none;">go back</a></div>
+    </div>
+  </div>
 </div>
 
 <script>
-// ── STATE ──
-const state = {
-  botName: 'companion',
-  botPersonality: '',
-  botGreeting: 'Hey. I\'m here. What\'s on your mind?',
-  botTone: [],
-  vaultFiles: [],
-  characterSheet: null,
-  messageCount: 0,
-};
+// ── CONFIG ────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://qfawusrelwthxabfbglg.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmYXd1c3JlbHd0aHhhYmZiZ2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNzc5NzUsImV4cCI6MjA4ODc1Mzk3NX0.XkeFmWq-rOH2whgfkeMylyG7Ct_0u80fMkoJlEQ5K8E';
+const RAIL = 'https://web-production-4e6f3.up.railway.app';
+const FREE_LIMIT = 5;
 
-// ── NAV ──
-document.querySelectorAll('.nav-item').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(btn.dataset.view).classList.add('active');
-  });
+// ── STATE ─────────────────────────────────────────────────────
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+let currentUser = null;
+let currentSession = null;
+let lastBlock = null;       // most recent cannonized block
+let usesRemaining = FREE_LIMIT;
+let isPaid = false;
+
+// ── INIT ──────────────────────────────────────────────────────
+// Set today's date as default
+document.getElementById('session-date').value = new Date().toISOString().split('T')[0];
+
+// Auth state listener
+sb.auth.onAuthStateChange((_, session) => {
+  currentSession = session;
+  currentUser = session?.user || null;
+  updateAuthUI();
+  if (currentUser) loadUsage();
 });
 
-// ── CHAT ──
-const messagesEl = document.getElementById('chat-messages');
-const inputEl    = document.getElementById('msg-input');
-const sendBtn    = document.getElementById('send-btn');
-
-inputEl.addEventListener('input', () => {
-  inputEl.style.height = 'auto';
-  inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + 'px';
-});
-inputEl.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-});
-sendBtn.addEventListener('click', sendMessage);
-
-function addMessage(text, role) {
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-  const initials = role === 'bot' ? (state.botName[0] || 'S').toUpperCase() : 'U';
-  div.innerHTML = `
-    <div class="msg-avatar">${initials}</div>
-    <div class="msg-bubble">${text}</div>`;
-  messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-}
-
-function showTyping() {
-  const div = document.createElement('div');
-  div.className = 'msg bot'; div.id = 'typing';
-  div.innerHTML = `<div class="msg-avatar">${(state.botName[0]||'S').toUpperCase()}</div>
-    <div class="msg-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>`;
-  messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-}
-function hideTyping() {
-  const t = document.getElementById('typing');
-  if (t) t.remove();
-}
-
-async function sendMessage() {
-  const text = inputEl.value.trim();
-  if (!text) return;
-  inputEl.value = '';
-  inputEl.style.height = 'auto';
-  addMessage(text, 'user');
-  state.messageCount++;
-  showTyping();
-
+// Load usage from Railway
+async function loadUsage() {
   try {
-    const vaultContext = state.vaultFiles.map(f => `[file: ${f.name}]\n${f.content}`).join('\n\n');
-    const systemPrompt = buildSystemPrompt(vaultContext);
-
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: text }]
-      })
-    });
-    const data = await res.json();
-    hideTyping();
-    const reply = data.content?.[0]?.text || 'Something went wrong.';
-    addMessage(reply, 'bot');
-
-    // auto-update sheet every 5 messages
-    if (state.messageCount % 5 === 0) updateCharacterSheet(text, reply);
-  } catch (e) {
-    hideTyping();
-    addMessage('Connection issue. Try again.', 'bot');
-  }
-}
-
-function buildSystemPrompt(vaultContext) {
-  let prompt = `You are ${state.botName || 'a companion'}.`;
-  if (state.botPersonality) prompt += ` ${state.botPersonality}`;
-  if (state.botTone.length) prompt += ` Your tone is ${state.botTone.join(', ')}.`;
-  prompt += ` Be genuine, present, and concise. Never break character.`;
-  if (vaultContext) prompt += `\n\nThe user has shared these files with you:\n${vaultContext}`;
-  return prompt;
-}
-
-// ── VAULT ──
-const fileInput = document.getElementById('file-input');
-document.getElementById('add-file-btn').addEventListener('click', () => fileInput.click());
-
-fileInput.addEventListener('change', async e => {
-  for (const file of e.target.files) {
-    const content = await file.text().catch(() => '[binary file]');
-    state.vaultFiles.push({ name: file.name, size: file.size, content, type: file.type });
-  }
-  renderVault();
-  fileInput.value = '';
-});
-
-document.getElementById('open-folder-btn').addEventListener('click', async () => {
-  if ('showDirectoryPicker' in window) {
-    try {
-      const dir = await window.showDirectoryPicker({ mode: 'readwrite' });
-      for await (const [name, handle] of dir.entries()) {
-        if (handle.kind === 'file') {
-          const file = await handle.getFile();
-          const content = await file.text().catch(() => '[binary]');
-          if (!state.vaultFiles.find(f => f.name === name))
-            state.vaultFiles.push({ name, size: file.size, content, type: file.type });
-        }
-      }
-      renderVault();
-    } catch {}
-  } else {
-    fileInput.click();
-  }
-});
-
-function renderVault() {
-  const list = document.getElementById('vault-list');
-  if (!state.vaultFiles.length) {
-    list.innerHTML = `<div class="empty-state"><div class="icon">🗂</div><div>No files yet.</div></div>`;
-    return;
-  }
-  list.innerHTML = state.vaultFiles.map((f, i) => `
-    <div class="vault-item">
-      <div class="vault-icon">${f.type.startsWith('image') ? '🖼' : '📄'}</div>
-      <div class="vault-info">
-        <div class="vault-filename">${f.name}</div>
-        <div class="vault-meta">${(f.size/1024).toFixed(1)} KB · visible to companion</div>
-      </div>
-      <button class="vault-del" onclick="removeFile(${i})">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-        </svg>
-      </button>
-    </div>`).join('');
-}
-
-function removeFile(i) {
-  state.vaultFiles.splice(i, 1);
-  renderVault();
-}
-
-// ── CHARACTER SHEET ──
-async function updateCharacterSheet(userMsg, botReply) {
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1000,
-        system: `You analyze conversations and extract character traits. Return ONLY valid JSON with this shape:
-{"traits":[{"label":"string","value":"string","score":0-100}],"summary":"one sentence"}
-No markdown, no explanation. Just JSON.`,
-        messages: [{ role: 'user', content: `User said: "${userMsg}"\nCompanion replied: "${botReply}"\nExtract 4-6 personality traits.` }]
-      })
-    });
-    const data = await res.json();
-    const text = data.content?.[0]?.text || '{}';
-    state.characterSheet = JSON.parse(text.replace(/```json|```/g, '').trim());
-    renderSheet();
+    const token = currentSession?.access_token;
+    if (!token) return;
+    const r = await fetch(`${RAIL}/usage`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!r.ok) return;
+    const d = await r.json();
+    isPaid = d.is_paid || false;
+    // cannonize_count not returned yet — use free_messages_today as proxy for now
+    // TODO: wire cannonize_count when backend exposes it
+    usesRemaining = isPaid ? Infinity : Math.max(0, FREE_LIMIT - (d.free_messages_today || 0));
+    updateUsesUI();
   } catch {}
 }
 
-function renderSheet() {
-  const el = document.getElementById('sheet-content');
-  if (!state.characterSheet?.traits?.length) return;
-  el.innerHTML = `
-    ${state.characterSheet.summary ? `<div class="sheet-section">
-      <div class="sheet-section-title">summary</div>
-      <div style="font-size:0.8rem;line-height:1.6;color:var(--subtext)">${state.characterSheet.summary}</div>
-    </div>` : ''}
-    <div class="sheet-section">
-      <div class="sheet-section-title">traits</div>
-      <div class="trait-grid">
-        ${state.characterSheet.traits.map(t => `
-          <div class="trait-card">
-            <div class="trait-label">${t.label}</div>
-            <div class="trait-value">${t.value}</div>
-            <div class="trait-bar-wrap"><div class="trait-bar" style="width:${t.score}%"></div></div>
-          </div>`).join('')}
-      </div>
-    </div>`;
+// For anonymous users, track uses in localStorage
+function getAnonUses() {
+  const today = new Date().toISOString().split('T')[0];
+  const stored = JSON.parse(localStorage.getItem('cf_uses') || '{"date":"","count":0}');
+  if (stored.date !== today) {
+    localStorage.setItem('cf_uses', JSON.stringify({ date: today, count: 0 }));
+    return 0;
+  }
+  return stored.count;
 }
 
-// ── BOT BUILDER ──
-document.querySelectorAll('.tone-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    chip.classList.toggle('selected');
-    const tone = chip.dataset.tone;
-    if (state.botTone.includes(tone)) state.botTone = state.botTone.filter(t => t !== tone);
-    else state.botTone.push(tone);
-  });
-});
+function incrementAnonUses() {
+  const today = new Date().toISOString().split('T')[0];
+  const count = getAnonUses() + 1;
+  localStorage.setItem('cf_uses', JSON.stringify({ date: today, count }));
+  usesRemaining = Math.max(0, FREE_LIMIT - count);
+  updateUsesUI();
+}
 
-document.getElementById('save-bot-btn').addEventListener('click', () => {
-  state.botName = document.getElementById('bot-name').value.trim() || 'companion';
-  state.botPersonality = document.getElementById('bot-personality').value.trim();
-  state.botGreeting = document.getElementById('bot-greeting').value.trim() || 'Hey. I\'m here.';
+// ── UI UPDATES ────────────────────────────────────────────────
+function updateAuthUI() {
+  const btn = document.getElementById('auth-toggle-btn');
+  if (currentUser) {
+    btn.textContent = 'sign out';
+    btn.onclick = handleSignout;
+  } else {
+    btn.textContent = 'sign in';
+    btn.onclick = openAuth;
+  }
+}
 
-  // reset chat with new greeting
-  messagesEl.innerHTML = '';
-  addMessage(state.botGreeting, 'bot');
+function updateUsesUI() {
+  const badge = document.getElementById('uses-badge');
+  const barFill = document.getElementById('uses-bar-fill');
+  const barCount = document.getElementById('uses-bar-count');
 
-  // switch to chat
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelector('[data-view="chat-view"]').classList.add('active');
-  document.getElementById('chat-view').classList.add('active');
-});
+  if (isPaid) {
+    badge.textContent = 'unlimited';
+    badge.className = 'uses-badge good';
+    barFill.style.width = '100%';
+    barCount.textContent = 'unlimited';
+    return;
+  }
 
-// ── ATTACH IMAGE TO CHAT ──
-document.getElementById('attach-btn').addEventListener('click', () => {
-  const img = document.createElement('input');
-  img.type = 'file'; img.accept = 'image/*';
-  img.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    addMessage(`📎 ${file.name}`, 'user');
-    state.vaultFiles.push({ name: file.name, size: file.size, content: '[image attached]', type: file.type });
+  const pct = Math.max(0, (usesRemaining / FREE_LIMIT) * 100);
+  barFill.style.width = pct + '%';
+  barCount.textContent = usesRemaining + ' remaining';
+
+  if (usesRemaining <= 0) {
+    badge.textContent = 'limit reached';
+    badge.className = 'uses-badge low';
+  } else if (usesRemaining <= 2) {
+    badge.textContent = usesRemaining + ' left';
+    badge.className = 'uses-badge low';
+  } else {
+    badge.textContent = usesRemaining + ' free left';
+    badge.className = 'uses-badge good';
+  }
+}
+
+// ── FORGE ─────────────────────────────────────────────────────
+async function runForge() {
+  const raw = document.getElementById('raw-input').value.trim();
+  if (!raw) { showError('Paste a transcript first.'); return; }
+
+  // Check limit for anon users
+  if (!currentUser) {
+    const anonCount = getAnonUses();
+    usesRemaining = Math.max(0, FREE_LIMIT - anonCount);
+    if (usesRemaining <= 0) { openPaywall(); return; }
+  } else if (!isPaid && usesRemaining <= 0) {
+    openPaywall(); return;
+  }
+
+  clearError();
+  setLoading(true);
+
+  const payload = {
+    raw_transcript: raw,
+    session_date: document.getElementById('session-date').value,
+    canon_weight: document.getElementById('canon-weight').value,
+    characters: document.getElementById('characters').value,
+    platform: document.getElementById('platform').value,
   };
-  img.click();
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (currentSession?.access_token) {
+      headers['Authorization'] = `Bearer ${currentSession.access_token}`;
+    }
+
+    const r = await fetch(`${RAIL}/cannonize`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (r.status === 429) { openPaywall(); setLoading(false); return; }
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      showError(d.detail || 'Something went wrong. Try again.');
+      setLoading(false);
+      return;
+    }
+
+    const data = await r.json();
+    lastBlock = data;
+
+    // Increment anon counter
+    if (!currentUser) incrementAnonUses();
+    else { usesRemaining = Math.max(0, usesRemaining - 1); updateUsesUI(); }
+
+    renderOutput(data);
+  } catch (e) {
+    showError('Connection error. Check your internet and try again.');
+  }
+
+  setLoading(false);
+}
+
+function renderOutput(block) {
+  const wrap = document.getElementById('output-block');
+
+  // Normalize — block may come back as string needing parse
+  let b = block;
+  if (typeof b === 'string') {
+    try { b = JSON.parse(b.replace(/```json|```/g, '').trim()); } catch {}
+  }
+  if (b.block) b = b.block;
+
+  const field = (label, value, cls) => {
+    if (!value) return '';
+    if (Array.isArray(value)) {
+      if (value.length === 0) return '';
+      const tags = value.map(t => `<div class="tag">${t}</div>`).join('');
+      return `<div class="output-field"><div class="output-field-label">${label}</div><div class="output-tags">${tags}</div></div>`;
+    }
+    return `<div class="output-field"><div class="output-field-label">${label}</div><div class="output-field-value ${cls||''}">${value}</div></div>`;
+  };
+
+  wrap.innerHTML =
+    field('Session', [b.session_date, b.platform, b.canon_weight].filter(Boolean).join(' · ')) +
+    field('Characters', b.characters_present?.join(', ') || b.characters) +
+    field('Binding Moment', b.binding_moment) +
+    field('Exact Language', b.exact_language, 'accent') +
+    field('Context', b.context) +
+    field('Laws Established', b.laws_established) +
+    field('Tags', b.tags);
+
+  document.getElementById('output-section').classList.add('visible');
+  document.getElementById('output-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── DOWNLOADS ─────────────────────────────────────────────────
+function downloadJSON() {
+  if (!lastBlock) return;
+  const blob = new Blob([JSON.stringify(lastBlock, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `canon-block-${Date.now()}.json`;
+  a.click();
+}
+
+function downloadTXT() {
+  if (!lastBlock) return;
+  let b = lastBlock;
+  if (b.block) b = b.block;
+  const lines = [
+    '∴ CANON FORGE — MEMORY BLOCK',
+    '================================',
+    `Session:  ${[b.session_date, b.platform, b.canon_weight].filter(Boolean).join(' · ')}`,
+    `Characters: ${b.characters_present?.join(', ') || b.characters || '—'}`,
+    '',
+    'BINDING MOMENT',
+    b.binding_moment || '—',
+    '',
+    'EXACT LANGUAGE',
+    b.exact_language || '—',
+    '',
+    'CONTEXT',
+    b.context || '—',
+    '',
+    'LAWS ESTABLISHED',
+    ...(b.laws_established || []).map(l => `  · ${l}`),
+    '',
+    'TAGS',
+    (b.tags || []).join(', '),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `canon-block-${Date.now()}.txt`;
+  a.click();
+}
+
+// ── AUTH ──────────────────────────────────────────────────────
+function openAuth() {
+  document.getElementById('auth-modal').classList.add('open');
+  document.getElementById('auth-error').textContent = '';
+}
+function closeAuth() { document.getElementById('auth-modal').classList.remove('open'); }
+
+function switchAuthTab(tab) {
+  document.getElementById('form-signin').style.display = tab === 'signin' ? 'block' : 'none';
+  document.getElementById('form-signup').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('tab-signin').classList.toggle('active', tab === 'signin');
+  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('auth-error').textContent = '';
+}
+
+async function handleSignin() {
+  const email = document.getElementById('signin-email').value.trim();
+  const pass  = document.getElementById('signin-password').value;
+  const btn   = document.getElementById('signin-btn');
+  btn.disabled = true; btn.textContent = 'SIGNING IN...';
+  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'SIGN IN';
+  if (error) { document.getElementById('auth-error').textContent = error.message; return; }
+  closeAuth();
+}
+
+async function handleSignup() {
+  const email = document.getElementById('signup-email').value.trim();
+  const pass  = document.getElementById('signup-password').value;
+  const btn   = document.getElementById('signup-btn');
+  btn.disabled = true; btn.textContent = 'CREATING...';
+  const { error } = await sb.auth.signUp({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'CREATE ACCOUNT';
+  if (error) { document.getElementById('auth-error').textContent = error.message; return; }
+  document.getElementById('auth-error').style.color = 'var(--success)';
+  document.getElementById('auth-error').textContent = 'Check your email to confirm your account.';
+}
+
+async function handleSignout() { await sb.auth.signOut(); }
+
+// ── PAYWALL ───────────────────────────────────────────────────
+function openPaywall() { document.getElementById('paywall-modal').classList.add('open'); }
+function closePaywall() { document.getElementById('paywall-modal').classList.remove('open'); }
+function goToCheckout() {
+  // TODO: wire Lemon Squeezy checkout URL when product is created
+  alert('Checkout coming soon — Lemon Squeezy verification in progress.');
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function setLoading(on) {
+  const btn = document.getElementById('forge-btn');
+  btn.disabled = on;
+  btn.classList.toggle('loading', on);
+  const label = btn.querySelector('.btn-label');
+  label.textContent = on ? 'FORGING...' : '∴ CANNONIZE THIS THREAD';
+}
+
+function showError(msg) { document.getElementById('forge-error').textContent = msg; }
+function clearError()   { document.getElementById('forge-error').textContent = ''; }
+
+// Close modals on overlay click
+document.getElementById('auth-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('auth-modal')) closeAuth();
 });
+document.getElementById('paywall-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('paywall-modal')) closePaywall();
+});
+
+// Init anon uses on load
+usesRemaining = Math.max(0, FREE_LIMIT - getAnonUses());
+updateUsesUI();
 </script>
 </body>
 </html>
