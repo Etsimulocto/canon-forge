@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Canon Forge — Structured Memory from Raw Conversation</title>
-  <meta name="description" content="Paste messy text. Get clean structured memory blocks. Built for writers, worldbuilders, and AI power users. YOU MUST DOWNLOAD THE FILES. We do not save them" />
+  <meta name="description" content="Paste messy text. Get clean structured memory blocks. Built for writers, worldbuilders, and AI power users." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400&family=Bebas+Neue&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -624,6 +624,12 @@
     }
     .footer-link:hover { color: var(--accent); }
 
+    /* ── DATA NOTICE ── */
+    .data-notice {
+      font-size:0.58rem;letter-spacing:0.08em;color:var(--subtext);
+      text-align:center;margin-top:10px;line-height:1.6;
+      border-top:1px solid var(--border);padding-top:10px;
+    }
     /* ── ANIMATIONS ── */
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(12px); }
@@ -756,6 +762,7 @@
           <span class="btn-label">∴ CANNONIZE THIS THREAD</span>
         </div>
       </button>
+      <div class="data-notice">canon forge does not store your transcripts. download your block to save it.</div>
       <div class="forge-error" id="forge-error"></div>
     </div>
 
