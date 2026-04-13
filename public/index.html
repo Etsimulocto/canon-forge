@@ -842,7 +842,7 @@
       <div class="paywall-title">Free uses exhausted.</div>
       <div class="paywall-sub">You've used all 5 free memory forges.<br/>Unlock unlimited access to keep building your canon.</div>
       <div class="paywall-price">$4.99</div>
-      <div class="paywall-price-sub">LIFETIME ACCESS · ONE-TIME PAYMENT</div>
+      <div class="paywall-price-sub">STARTER PACK · ONE-TIME PAYMENT</div>
       <button class="paywall-btn" onclick="goToCheckout()">UNLOCK CANON FORGE</button>
       <div class="paywall-alt">or <a href="#" onclick="closePaywall()" style="color:var(--accent);text-decoration:none;">go back</a></div>
     </div>
@@ -1169,14 +1169,25 @@ function closeStore() {
   document.getElementById('store-overlay').classList.remove('open');
   document.getElementById('store-panel').classList.remove('open');
 }
+async function loadForgeCredits() {
+  try {
+    const token = currentSession?.access_token;
+    if (!token) return;
+    const r = await fetch(RAIL + '/usage', { headers: { 'Authorization': 'Bearer ' + token } });
+    const d = await r.json();
+    const el = document.getElementById('store-credits-count');
+    if (el) el.textContent = Math.floor(d.credits || 0);
+  } catch {}
+}
 function updateStoreUI() {
   const planLabel = document.getElementById('store-plan-label');
   const planUses  = document.getElementById('store-plan-uses');
   const upgradeBtn = document.getElementById('store-upgrade-btn');
   const accountEl = document.getElementById('store-account-email');
   if (isPaid) {
-    planLabel.textContent = 'LIFETIME ACCESS';
-    planUses.textContent  = 'Unlimited forges';
+    planLabel.textContent = 'STARTER PACK';
+planUses.innerHTML = '<span id="store-credits-count">loading...</span> forges remaining';
+    loadForgeCredits();
     upgradeBtn.textContent = 'UNLOCKED';
     upgradeBtn.className   = 'store-upgrade-btn owned';
     upgradeBtn.onclick     = null;
