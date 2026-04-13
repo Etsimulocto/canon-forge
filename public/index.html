@@ -735,7 +735,7 @@
 
   <!-- FOOTER -->
   <footer>
-    <div class="footer-left">© 2026 QuarterBit Games</div>
+    <div class="footer-left">© 2026 quarterbitgames</div>
     <div class="footer-right">
       <a href="https://spiralside.com/privacy" class="footer-link">privacy</a>
       <a href="https://spiralside.com/terms" class="footer-link">terms</a>
@@ -781,8 +781,8 @@
       <div class="paywall-icon">∴</div>
       <div class="paywall-title">Free uses exhausted.</div>
       <div class="paywall-sub">You've used all 5 free memory forges.<br/>Unlock unlimited access to keep building your canon.</div>
-      <div class="paywall-price">$9.99</div>
-      <div class="paywall-price-sub">/ MONTH · CANCEL ANYTIME</div>
+      <div class="paywall-price">$4.99</div>
+      <div class="paywall-price-sub">LIFETIME ACCESS · ONE-TIME PAYMENT</div>
       <button class="paywall-btn" onclick="goToCheckout()">UNLOCK CANON FORGE</button>
       <div class="paywall-alt">or <a href="#" onclick="closePaywall()" style="color:var(--accent);text-decoration:none;">go back</a></div>
     </div>
@@ -1072,9 +1072,19 @@ async function handleSignout() { await sb.auth.signOut(); }
 // ── PAYWALL ───────────────────────────────────────────────────
 function openPaywall() { document.getElementById('paywall-modal').classList.add('open'); }
 function closePaywall() { document.getElementById('paywall-modal').classList.remove('open'); }
-function goToCheckout() {
-  // TODO: wire Lemon Squeezy checkout URL when product is created
-  alert('Checkout coming soon — Lemon Squeezy verification in progress.');
+async function goToCheckout() {
+  if (!currentUser) { closePaywall(); openAuth(); return; }
+  try {
+    const token = currentSession?.access_token;
+    const r = await fetch(RAIL + '/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ amount: '499' })
+    });
+    const data = await r.json();
+    if (!r.ok) { alert(data.detail || 'Payment error.'); return; }
+    window.location.href = data.approve_url;
+  } catch(e) { alert('Payment error. Try again.'); }
 }
 
 // ── HELPERS ───────────────────────────────────────────────────
@@ -1100,6 +1110,36 @@ document.getElementById('paywall-modal').addEventListener('click', e => {
 // Init anon uses on load
 usesRemaining = Math.max(0, FREE_LIMIT - getAnonUses());
 updateUsesUI();
+
+// Handle PayPal return
+(async function handlePayPalReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const payment = params.get('payment');
+  const token = params.get('token');
+  if (payment === 'success' && token) {
+    try {
+      // wait for auth to settle
+      await new Promise(r => setTimeout(r, 800));
+      const { data } = await sb.auth.getSession();
+      const authToken = data?.session?.access_token;
+      if (!authToken) return;
+      const r = await fetch(RAIL + '/capture-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+        body: JSON.stringify({ order_id: token })
+      });
+      const result = await r.json();
+      if (r.ok) {
+        isPaid = true;
+        updateUsesUI();
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setTimeout(() => alert('Payment successful! Canon Forge is now unlocked.'), 300);
+      }
+    } catch(e) {}
+  } else if (payment === 'cancelled') {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+})();
 </script>
 </body>
 </html>
